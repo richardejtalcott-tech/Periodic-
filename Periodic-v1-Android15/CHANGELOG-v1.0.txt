@@ -1,0 +1,8 @@
+PERIODIC v1.0.0
+
+- Established Periodic as the foundational app and project name.
+- Changed Android package and application ID to com.periodic.app.
+- Reset versioning to versionCode 1 and versionName 1.0.0.
+- Renamed the GitHub Actions workflow and APK artifact for Periodic.
+- Preserved the upgraded visual renderer, category materials, space environment,
+  aligned electron orbits, and detailed particle exhibits from the prior prototype.
