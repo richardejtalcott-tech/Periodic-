@@ -1,117 +1,88 @@
 package com.periodic.app;
 
-import android.content.*;
+import android.content.Context;
 import android.graphics.*;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.view.*;
-import android.widget.OverScroller;
 import java.util.*;
 
-public class PeriodicTableView extends View {
+public final class PeriodicTableView extends View {
+    public interface Listener { void onElement(int atomicNumber); }
+    private final Listener listener;
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.DITHER_FLAG);
-    private final ScaleGestureDetector scaleDetector;
-    private final GestureDetector gestureDetector;
-    private final OverScroller scroller;
-    private float scale=1f, panX=0,panY=0, tiltX=-8,tiltY=0,lastAngle=0,phase=0;
-    private boolean rotating=false;
+    private final ScaleGestureDetector scaler;
+    private final GestureDetector gestures;
     private final HashMap<Integer,RectF> hit=new HashMap<>();
-    private int selected=-1;
+    private float zoom=1.12f, panX=0f, yaw=0f, phase=0f;
+    private int pressed=-1;
 
-    public PeriodicTableView(Context c){
-        super(c);
+    public PeriodicTableView(Context c, Listener listener){
+        super(c); this.listener=listener; setLayerType(View.LAYER_TYPE_SOFTWARE,null);
         p.setTypeface(Typeface.create("sans",Typeface.BOLD));
-        scroller=new OverScroller(c);
-        scaleDetector=new ScaleGestureDetector(c,new ScaleGestureDetector.SimpleOnScaleGestureListener(){
-            public boolean onScale(ScaleGestureDetector d){scale=Math.max(.5f,Math.min(4.2f,scale*d.getScaleFactor()));invalidate();return true;}
+        scaler=new ScaleGestureDetector(c,new ScaleGestureDetector.SimpleOnScaleGestureListener(){
+            @Override public boolean onScale(ScaleGestureDetector d){zoom=Math.max(.82f,Math.min(2.7f,zoom*d.getScaleFactor()));invalidate();return true;}
         });
-        gestureDetector=new GestureDetector(c,new GestureDetector.SimpleOnGestureListener(){
-            public boolean onDown(MotionEvent e){scroller.forceFinished(true);return true;}
-            public boolean onScroll(MotionEvent a,MotionEvent b,float dx,float dy){if(b.getPointerCount()==1){panX-=dx;panY-=dy;}invalidate();return true;}
-            public boolean onSingleTapUp(MotionEvent e){return tap(e.getX(),e.getY());}
-            public boolean onDoubleTap(MotionEvent e){scale=1;panX=panY=tiltY=0;tiltX=-8;selected=-1;invalidate();return true;}
-            public boolean onFling(MotionEvent e1,MotionEvent e2,float vx,float vy){scroller.fling((int)panX,(int)panY,(int)vx,(int)vy,-1800,1800,-1000,1000);postInvalidateOnAnimation();return true;}
+        gestures=new GestureDetector(c,new GestureDetector.SimpleOnGestureListener(){
+            @Override public boolean onDown(MotionEvent e){return true;}
+            @Override public boolean onScroll(MotionEvent a,MotionEvent b,float dx,float dy){
+                panX=Math.max(-getWidth()*.32f,Math.min(getWidth()*.32f,panX-dx));
+                yaw=Math.max(-13f,Math.min(13f,panX/Math.max(1f,getWidth())*30f)); invalidate(); return true;
+            }
+            @Override public boolean onDoubleTap(MotionEvent e){zoom=1.12f;panX=0;yaw=0;pressed=-1;invalidate();return true;}
+            @Override public boolean onSingleTapUp(MotionEvent e){return tap(e.getX(),e.getY());}
         });
     }
-
-    @Override public void computeScroll(){if(scroller.computeScrollOffset()){panX=scroller.getCurrX();panY=scroller.getCurrY();postInvalidateOnAnimation();}}
-    @Override public boolean onTouchEvent(MotionEvent e){
-        scaleDetector.onTouchEvent(e); gestureDetector.onTouchEvent(e);
-        if(e.getPointerCount()==2){float a=(float)Math.toDegrees(Math.atan2(e.getY(1)-e.getY(0),e.getX(1)-e.getX(0)));if(rotating){float d=a-lastAngle;tiltY+=d;tiltX=Math.max(-22,Math.min(18,tiltX+(e.getY(0)+e.getY(1)-getHeight())*.0004f));invalidate();}lastAngle=a;rotating=true;}else rotating=false;
-        return true;
+    @Override public boolean onTouchEvent(MotionEvent e){scaler.onTouchEvent(e);gestures.onTouchEvent(e);return true;}
+    private Matrix matrix(){
+        float w=getWidth(),h=getHeight(); float base=Math.min(w/1520f,h/790f);
+        Matrix m=new Matrix();m.postTranslate(-760,-395);m.postScale(base*zoom,base*zoom);
+        // Side-to-side movement changes perspective without allowing roll, pitch, or underside views.
+        float perspective=(float)Math.sin(Math.toRadians(yaw));
+        m.postSkew(perspective*.055f,0f);m.postScale(1f-Math.abs(perspective)*.045f,1f,760,395);
+        m.postTranslate(w/2+panX*.24f,h/2+10);return m;
     }
-
     private boolean tap(float x,float y){
-        Matrix inv=new Matrix();buildMatrix().invert(inv);float[] pt={x,y};inv.mapPoints(pt);
-        for(Map.Entry<Integer,RectF> en:hit.entrySet())if(en.getValue().contains(pt[0],pt[1])){
-            selected=en.getKey();invalidate(); SoundFx.select();
-            Intent i=new Intent(getContext(),ElementDetailActivity.class);i.putExtra("element",en.getKey());getContext().startActivity(i);return true;
-        }
-        return false;
+        Matrix inv=new Matrix(); if(!matrix().invert(inv))return false; float[] q={x,y};inv.mapPoints(q);
+        for(Map.Entry<Integer,RectF> en:hit.entrySet()) if(en.getValue().contains(q[0],q[1])){
+            pressed=en.getKey();invalidate();performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+            postDelayed(()->listener.onElement(en.getKey()),110);return true;
+        }return false;
     }
-
-    private Matrix buildMatrix(){
-        float w=getWidth(),h=getHeight();float base=Math.min(w/1530f,h/760f);
-        Matrix m=new Matrix();m.postTranslate(-765,-380);m.postScale(base*scale,base*scale);
-        m.postSkew((float)Math.sin(Math.toRadians(tiltY))*.095f,(float)Math.sin(Math.toRadians(tiltX))*.07f);
-        m.postTranslate(w/2+panX,h/2+panY);return m;
-    }
-
-    @Override protected void onDraw(Canvas c){
-        c.drawColor(Color.rgb(1,4,12));drawSpace(c);c.save();c.concat(buildMatrix());drawTable(c);c.restore();drawHud(c);phase+=.45f;postInvalidateOnAnimation();
-    }
-
-    private void drawSpace(Canvas c){
-        float w=getWidth(),h=getHeight();p.setStyle(Paint.Style.FILL); float drift=(float)Math.sin(Math.toRadians(phase*.32f))*18f;
-        // star cluster / nebula
-        p.setShader(new RadialGradient(w*.22f+drift,h*.28f,w*.34f,new int[]{Color.argb(80,73,35,129),Color.argb(40,31,78,132),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawRect(0,0,w,h,p);p.setShader(null);
-        p.setShader(new RadialGradient(w*.31f-drift*.45f,h*.39f,w*.24f,new int[]{Color.argb(42,212,97,160),Color.argb(18,70,120,190),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawRect(0,0,w,h,p);p.setShader(null);
-        p.setShader(new RadialGradient(w*.64f-drift*.25f,h*.72f,w*.22f,new int[]{Color.argb(34,20,95,125),Color.argb(18,80,35,115),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawRect(0,0,w,h,p);p.setShader(null);
-        for(int i=0;i<220;i++){float x=(i*157%1009)/1009f*w,y=(i*271%1013)/1013f*h;float tw=.55f+.45f*(float)Math.sin(Math.toRadians(phase*2+i*23));p.setColor(Color.argb((int)(45+150*tw),160+(i%3)*25,180+(i%2)*35,255));c.drawCircle(x,y,.7f+(i%4)*.42f,p);}
-        drawSaturn(c,w*.83f+drift*.2f,h*.22f,Math.min(w,h)*.105f);
-        // sparse dust field for depth
-        for(int i=0;i<32;i++){float x=(i*313%1019)/1019f*w+drift*(i%3-1)*.25f,y=(i*421%1021)/1021f*h;p.setColor(Color.argb(20+(i%5)*8,120,170,255));c.drawCircle(x,y,3+(i%4)*2,p);}
-    }
-
-    private void drawSaturn(Canvas c,float x,float y,float r){
-        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(r*.12f);p.setColor(Color.argb(80,199,180,130));c.save();c.rotate(-16,x,y);c.drawOval(x-r*1.65f,y-r*.42f,x+r*1.65f,y+r*.42f,p);c.restore();
-        p.setStyle(Paint.Style.FILL);p.setShader(new LinearGradient(x-r,y-r,x+r,y+r,new int[]{Color.argb(125,227,202,145),Color.argb(120,154,111,72),Color.argb(110,220,184,116)},null,Shader.TileMode.CLAMP));c.drawCircle(x,y,r,p);p.setShader(null);
-        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(r*.03f);p.setColor(Color.argb(65,255,240,195));for(int i=-2;i<=2;i++)c.drawArc(x-r*.9f,y-r*.45f+i*r*.14f,x+r*.9f,y+r*.45f+i*r*.14f,188,164,false,p);
-    }
-
+    @Override protected void onDraw(Canvas c){super.onDraw(c); c.save();c.concat(matrix());drawTable(c);c.restore();drawLegend(c);phase=(phase+.55f)%360f;postInvalidateOnAnimation();}
     private void drawTable(Canvas c){
-        hit.clear();float cw=78,ch=79,ox=63,oy=30; p.setTextAlign(Paint.Align.CENTER);
-        p.setShadowLayer(34,18,24,Color.BLACK);p.setColor(Color.rgb(13,16,24));p.setStyle(Paint.Style.FILL);c.drawRoundRect(18,-12,1512,752,34,34,p);p.clearShadowLayer();
-        p.setColor(Color.rgb(73,66,48));c.drawRoundRect(24,-6,1506,746,30,30,p);
-        p.setColor(Color.rgb(25,28,38));c.drawRoundRect(28,-2,1502,742,28,28,p);
-        p.setShader(new LinearGradient(0,0,1495,735,new int[]{Color.rgb(42,48,59),Color.rgb(24,28,38),Color.rgb(38,42,49)},null,Shader.TileMode.CLAMP));c.drawRoundRect(35,5,1495,735,24,24,p);p.setShader(null);
-        // faint underglow
-        p.setShader(new RadialGradient(760,715,620,new int[]{Color.argb(52,70,135,210),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawRect(100,540,1420,760,p);p.setShader(null);
-        for(Element e:ElementData.ALL){int row=e.period,col=e.group;float x=ox+(col-1)*cw,y=oy+(row-1)*ch;RectF r=new RectF(x,y,x+72,y+71);hit.put(e.number,r);drawTile(c,e,r,e.number==selected);}
-        p.setColor(Color.rgb(226,201,121));p.setTextSize(22);p.setTextAlign(Paint.Align.LEFT);c.drawText("PERIODIC v2  •  INTERACTIVE ELEMENT TABLE",63,718,p);
-        p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(16);c.drawText("Pinch to zoom  •  Drag to move  •  Twist to rotate  •  Double-tap to reset",1472,718,p);
+        hit.clear();float cw=79,ch=78,ox=50,oy=42;
+        p.setStyle(Paint.Style.FILL);p.setShadowLayer(30,0,18,Color.argb(190,0,0,0));p.setColor(Color.argb(225,8,13,18));c.drawRoundRect(15,6,1505,760,30,30,p);p.clearShadowLayer();
+        p.setShader(new LinearGradient(0,0,1520,760,new int[]{Color.rgb(28,39,45),Color.rgb(12,20,27),Color.rgb(32,42,47)},null,Shader.TileMode.CLAMP));c.drawRoundRect(22,13,1498,753,26,26,p);p.setShader(null);
+        // Realistic laboratory display plane and restrained under-light.
+        p.setShader(new RadialGradient(760,735,610,new int[]{Color.argb(85,66,154,183),Color.argb(20,32,87,104),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawRect(80,560,1440,770,p);p.setShader(null);
+        for(Element e:ElementData.ALL){float x=ox+(e.group-1)*cw,y=oy+(e.period-1)*ch;RectF r=new RectF(x,y,x+72,y+70);hit.put(e.number,r);drawTile(c,e,r,e.number==pressed);}
+        p.setTextAlign(Paint.Align.LEFT);p.setColor(Color.rgb(190,211,218));p.setTextSize(15);c.drawText("Lanthanides and actinides are displayed in their conventional detached rows.",54,735,p);
     }
-
     private void drawTile(Canvas c,Element e,RectF r,boolean active){
-        float depth=active?10f:7f;float lift=active?-5f:0f;RectF top=new RectF(r.left,r.top+lift,r.right,r.bottom+lift);
-        int base=Visuals.categoryColor(e.category), dark=Visuals.darken(base,.38f), edge=Visuals.darken(base,.58f), light=Visuals.lighten(base,.25f);
-        Path side=new Path();side.moveTo(top.right,top.top+5);side.lineTo(top.right+depth,top.top+depth);side.lineTo(top.right+depth,top.bottom+depth);side.lineTo(top.right,top.bottom);side.close();p.setColor(dark);p.setStyle(Paint.Style.FILL);c.drawPath(side,p);
-        Path bottom=new Path();bottom.moveTo(top.left+5,top.bottom);bottom.lineTo(top.right,top.bottom);bottom.lineTo(top.right+depth,top.bottom+depth);bottom.lineTo(top.left+depth,top.bottom+depth);bottom.close();p.setColor(edge);c.drawPath(bottom,p);
-        p.setShadowLayer(active?18:7,active?0:3,active?5:5,active?Color.argb(210,125,190,255):Color.argb(120,0,0,0));
-        p.setShader(new LinearGradient(top.left,top.top,top.right,top.bottom,new int[]{light,base,Visuals.darken(base,.16f)},null,Shader.TileMode.CLAMP));c.drawRoundRect(top,7,7,p);p.setShader(null);p.clearShadowLayer();
-        // matte moon reflection
-        p.setShader(new LinearGradient(top.left,top.top,top.right,top.top+18,new int[]{Color.argb(105,255,249,221),Color.argb(24,255,255,255),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawRoundRect(new RectF(top.left+3,top.top+3,top.right-3,top.top+20),6,6,p);p.setShader(null);
-        // fine brushed-metal grain and a slowly moving moonlight band
-        p.setStrokeWidth(.65f);for(int g=0;g<9;g++){float yy=top.top+8+g*6.1f;p.setColor(Color.argb(12+(g%3)*5,255,255,255));c.drawLine(top.left+5,yy,top.right-5,yy,p);}
-        float sweep=(phase*1.15f+e.number*17)%160f-45f;p.setShader(new LinearGradient(top.left+sweep,top.top,top.left+sweep+34,top.bottom,new int[]{Color.TRANSPARENT,Color.argb(42,255,255,230),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawRoundRect(top,7,7,p);p.setShader(null);
-        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2.2f);p.setColor(edge);c.drawRoundRect(top,7,7,p);p.setStyle(Paint.Style.FILL);
-        if(e.number>92){p.setColor(Color.rgb(218,88,145));c.drawCircle(top.right-8,top.top+8,3.5f,p);}
-        int text=Color.rgb(18,20,24);p.setShadowLayer(2.2f,0,-1,Color.argb(185,255,255,255));p.setColor(text);p.setTextAlign(Paint.Align.LEFT);p.setTextSize(11);c.drawText(String.valueOf(e.number),top.left+7,top.top+14,p);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(27);c.drawText(e.symbol,top.centerX(),top.top+40,p);p.setTextSize(8.8f);c.drawText(e.name,top.centerX(),top.top+53,p);p.setTextSize(8.2f);c.drawText(e.mass,top.centerX(),top.top+64,p);p.clearShadowLayer();
+        float lift=active?-5:0,depth=active?10:7;RectF top=new RectF(r.left,r.top+lift,r.right,r.bottom+lift);
+        int base=Visuals.categoryColor(e.category), side=Visuals.darken(base,.42f), edge=Visuals.darken(base,.62f), hi=Visuals.lighten(base,.20f);
+        Path right=new Path();right.moveTo(top.right,top.top+5);right.lineTo(top.right+depth,top.top+depth);right.lineTo(top.right+depth,top.bottom+depth);right.lineTo(top.right,top.bottom);right.close();p.setColor(side);c.drawPath(right,p);
+        Path low=new Path();low.moveTo(top.left+5,top.bottom);low.lineTo(top.right,top.bottom);low.lineTo(top.right+depth,top.bottom+depth);low.lineTo(top.left+depth,top.bottom+depth);low.close();p.setColor(edge);c.drawPath(low,p);
+        p.setShadowLayer(active?18:6,0,active?6:4,active?Color.argb(210,120,205,235):Color.argb(130,0,0,0));
+        p.setShader(new LinearGradient(top.left,top.top,top.right,top.bottom,new int[]{hi,base,Visuals.darken(base,.13f)},null,Shader.TileMode.CLAMP));c.drawRoundRect(top,6,6,p);p.setShader(null);p.clearShadowLayer();
+        // Moonlight reflection and subtle machining marks.
+        float sweep=((phase*1.15f+e.number*13)%125)-30;
+        p.setShader(new LinearGradient(top.left+sweep,top.top,top.left+sweep+27,top.bottom,new int[]{Color.TRANSPARENT,Color.argb(48,245,252,255),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawRoundRect(top,6,6,p);p.setShader(null);
+        p.setStrokeWidth(.55f);for(int i=0;i<7;i++){p.setColor(Color.argb(11+i%2*5,255,255,255));c.drawLine(top.left+5,top.top+8+i*8,top.right-5,top.top+8+i*8,p);}
+        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.8f);p.setColor(edge);c.drawRoundRect(top,6,6,p);p.setStyle(Paint.Style.FILL);
+        // Textbook-style layout: Z, symbol, name, mass.
+        int ink=Color.rgb(238,244,244);p.setShadowLayer(2,0,2,Color.argb(190,0,0,0));p.setColor(ink);
+        p.setTextAlign(Paint.Align.LEFT);p.setTextSize(10.5f);c.drawText(String.valueOf(e.number),top.left+6,top.top+13,p);
+        p.setTextAlign(Paint.Align.CENTER);p.setTextSize(27);c.drawText(e.symbol,top.centerX(),top.top+38,p);
+        p.setTextSize(8.4f);c.drawText(e.name,top.centerX(),top.top+51,p);
+        p.setTextSize(8.0f);p.setColor(Color.rgb(218,229,229));c.drawText(e.mass,top.centerX(),top.top+63,p);p.clearShadowLayer();
     }
-
-    private void drawHud(Canvas c){
-        p.setStyle(Paint.Style.FILL);p.setColor(Color.argb(155,0,0,0));c.drawRoundRect(18,16,365,70,18,18,p);p.setTextAlign(Paint.Align.LEFT);p.setColor(Color.WHITE);p.setTextSize(23);c.drawText("Tap any element to explore it",36,49,p);
-        if(selected>0){Element se=ElementData.byNumber(selected);if(se!=null){p.setTextAlign(Paint.Align.RIGHT);p.setColor(Color.argb(205,255,255,255));p.setTextSize(17);c.drawText(se.name+"  •  "+se.category,getWidth()-28,49,p);}}
-        // category legend
-        String[] cats={"Alkali metal","Transition metal","Metalloid","Nonmetal","Halogen","Noble gas","Lanthanide","Actinide"};
-        float x=20,y=getHeight()-38;for(String cat:cats){p.setColor(Visuals.categoryColor(cat));c.drawCircle(x+7,y-5,7,p);p.setColor(Color.argb(220,230,235,245));p.setTextSize(12);c.drawText(cat,x+19,y,p);x+=p.measureText(cat)+45;if(x>getWidth()-170)break;}
+    private void drawLegend(Canvas c){
+        String[] cats={"Alkali metal","Alkaline earth metal","Transition metal","Post-transition metal","Metalloid","Nonmetal","Halogen","Noble gas","Lanthanide","Actinide"};
+        p.setColor(Color.argb(150,4,9,14));c.drawRoundRect(18,getHeight()-55,getWidth()-18,getHeight()-12,17,17,p);
+        float x=34,y=getHeight()-31;p.setTextSize(10.5f);p.setTypeface(Typeface.create("sans",Typeface.NORMAL));
+        for(String cat:cats){p.setColor(Visuals.categoryColor(cat));c.drawCircle(x,y-4,5.5f,p);p.setColor(Color.rgb(211,222,226));c.drawText(cat,x+10,y,p);x+=p.measureText(cat)+31;if(x>getWidth()-120)break;}
+        p.setTypeface(Typeface.create("sans",Typeface.BOLD));
     }
 }

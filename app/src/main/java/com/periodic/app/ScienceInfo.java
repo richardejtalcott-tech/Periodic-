@@ -41,8 +41,9 @@ public final class ScienceInfo {
     }
 
     public static String electronConfigurationSummary(Element e) {
-        int left=e.number; int[] caps={2,8,18,32,32,18,8}; StringBuilder b=new StringBuilder();
-        for(int cap:caps){ if(left<=0) break; int n=Math.min(left,cap); if(b.length()>0)b.append(" · "); b.append(n); left-=n; }
+        int[] shells = NuclearData.shellDistribution(e.number);
+        StringBuilder b = new StringBuilder();
+        for (int value : shells) { if (b.length() > 0) b.append(" · "); b.append(value); }
         return b.toString();
     }
 

@@ -8,6 +8,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Periodic">
 
+        <activity android:name=".ScaleJourneyActivity" android:exported="false" android:screenOrientation="sensorLandscape" />
+        <activity android:name=".ExploreActivity" android:exported="false" android:screenOrientation="sensorLandscape" />
+
         <activity
             android:name=".ElementDetailActivity"
             android:exported="false"

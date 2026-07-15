@@ -33,5 +33,5 @@ public final class ElementData {
         if(s.equals("C")||s.equals("N")||s.equals("O")||s.equals("P")||s.equals("S")||s.equals("Se")) return "Nonmetal";
         return "Post-transition metal";
     }
-    public static Element byNumber(int n){ for(Element e:ALL) if(e.number==n) return e; return ALL.get(0); }
+    public static Element byNumber(int n){ for(Element e:ALL) if(e.number==n) return e; return null; }
 }

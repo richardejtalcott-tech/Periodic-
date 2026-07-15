@@ -14,8 +14,7 @@ public final class Element {
         this.category = category;
     }
 
-    public int neutrons() {
-        try { return Math.max(0, Math.round(Float.parseFloat(mass.replace("[", "").replace("]", ""))) - number); }
-        catch (Exception ignored) { return number; }
-    }
+    public int representativeMassNumber() { return NuclearData.massNumber(number); }
+    public int neutrons() { return Math.max(0, representativeMassNumber() - number); }
+    public String isotopeLabel() { return name + "-" + representativeMassNumber(); }
 }

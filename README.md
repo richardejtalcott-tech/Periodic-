@@ -1,21 +1,16 @@
-# Periodic v2 — Filament 3D
+# Periodic v2.2 Full Rebuild
 
-This branch replaces the Canvas-rendered periodic table with a true 3D glTF scene rendered by Google's **Filament 1.74.0** physically based rendering engine.
+Android 15 project using a hybrid renderer: Filament supplies the real 3D scientific-laboratory environment while custom Android rendering keeps all 118 table tiles crisp and readable.
 
-## Included
-- 118 real 3D element blocks in one optimized GLB scene
-- PBR metallic / roughness materials with category colors
-- Textured element faces with atomic number, symbol, and family
-- Real perspective camera, orbit rotation, and pinch zoom
-- Physical platform geometry plus a 3D Saturn and ring system
-- Filament post-processing and exposure controls
-- Existing animated oxygen splash and detailed atomic exhibit pages
-- GitHub Actions APK build for Android 15
+Implemented foundation:
+- corrected Filament dependency, AndroidX and Java/Kotlin 17 configuration
+- readable textbook-style tiles with category materials
+- locked front-facing camera: horizontal movement and zoom only
+- correct routing for all 118 elements
+- continuous orbital animation
+- isotope-labelled nuclei with exact proton/neutron particle counts
+- redesigned particle exhibits
+- Explore pages with curated isotope, ion, compound and evidence sections
+- Scale Journey
 
-## Interaction
-- Drag: orbit the 3D scene
-- Pinch: zoom
-- Double-tap: reset framing
-- Tap a tile from the initial front view: open its element exhibit
-
-The GLB is generated as an offline asset, so the application does not need internet access while running.
+Scientific notes are included directly in the interface where a model is educational rather than literal.

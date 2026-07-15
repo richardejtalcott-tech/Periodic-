@@ -1,0 +1,7 @@
+Periodic 2.2.0
+- Replaced unstable free-orbit table interaction with locked readable display.
+- Added Filament scientific laboratory background.
+- Fixed all-element routing bug caused by mismatched Intent keys.
+- Fixed AndroidX, Filament version, Java 17 and Kotlin 17 build settings.
+- Added exact representative isotope nucleon counts and continuous electrons.
+- Added Explore and Scale Journey screens.

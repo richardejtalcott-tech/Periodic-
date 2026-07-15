@@ -1,91 +1,61 @@
 package com.periodic.app;
 
-import android.content.Context;
-import android.graphics.*;
-import android.view.*;
+import android.content.*;import android.graphics.*;import android.view.*;import java.util.*;
 
-public class ElementDetailView extends View {
-    private final Element e;
-    private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.DITHER_FLAG);
-    private final ScaleGestureDetector scaler;
-    private float zoom=1,panX=0,panY=0,lastX,lastY,phase=0;
+public final class ElementDetailView extends View {
+ private final Element e; private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.DITHER_FLAG); private float phase=0; private final RectF explore=new RectF(); private int selectedShell=-1;
+ public ElementDetailView(Context c,Element e){super(c);this.e=e;setLayerType(View.LAYER_TYPE_SOFTWARE,null);p.setTypeface(Typeface.create("sans",Typeface.BOLD));}
+ @Override public boolean onTouchEvent(MotionEvent m){
+  if(m.getAction()==MotionEvent.ACTION_UP){
+   if(explore.contains(m.getX(),m.getY())){Intent i=new Intent(getContext(),ExploreActivity.class);i.putExtra("atomicNumber",e.number);getContext().startActivity(i);return true;}
+   float x=m.getX()*1600f/getWidth(),y=m.getY()*900f/getHeight();float dx=x-270f,dy=(y-338f)/.43f;float dist=(float)Math.sqrt(dx*dx+dy*dy);int[] shells=NuclearData.shellDistribution(e.number);float best=9999;int pick=-1;for(int i=0;i<shells.length;i++){float rr=182f*(.46f+i*.22f);float d=Math.abs(dist-rr);if(d<best){best=d;pick=i;}}if(best<32){selectedShell=pick;performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);invalidate();return true;}
+  }return true;
+ }
+ @Override protected void onDraw(Canvas c){super.onDraw(c);drawBackground(c);float sx=getWidth()/1600f,sy=getHeight()/900f;c.save();c.scale(sx,sy);drawPage(c);c.restore();phase=(phase+.72f)%360f;postInvalidateOnAnimation();}
+ private void drawBackground(Canvas c){c.drawColor(Color.rgb(5,9,13));float w=getWidth(),h=getHeight();p.setShader(new RadialGradient(w*.18f,h*.38f,w*.45f,new int[]{Color.argb(72,23,83,102),Color.argb(20,12,39,49),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawRect(0,0,w,h,p);p.setShader(null);for(int i=0;i<70;i++){p.setColor(Color.argb(18+i%5*7,150,205,215));c.drawCircle((i*137%997)/997f*w,(i*251%991)/991f*h,1+i%3,p);}}
+ private void drawPage(Canvas c){
+  drawElementSignature(c);
+  p.setTextAlign(Paint.Align.LEFT);p.setColor(Color.WHITE);p.setTextSize(38);c.drawText(e.name+"  "+e.symbol,42,54,p);p.setTextSize(16);p.setColor(Color.rgb(142,196,210));c.drawText("Atomic number "+e.number+"  •  "+e.category+"  •  model isotope "+e.isotopeLabel(),44,82,p);
+  drawElementIdentity(c);drawAtom(c,270,338,182);drawNucleusLens(c,650,288,132);drawParticleCards(c);drawProfile(c);drawScale(c);drawExploreButton(c);
+ }
+ private void drawElementSignature(Canvas c){
+  p.setStyle(Paint.Style.FILL);
+  if(e.symbol.equals("Hg")){
+   for(int i=0;i<9;i++){float x=80+i*61,y=520+(float)Math.sin(Math.toRadians(phase*2+i*37))*18;p.setShader(new RadialGradient(x-4,y-5,20,Color.rgb(228,238,242),Color.rgb(85,111,121),Shader.TileMode.CLAMP));c.drawCircle(x,y,10+i%3*3,p);p.setShader(null);}
+  }else if(e.symbol.equals("Au")){
+   p.setShader(new LinearGradient(0,0,620,500,new int[]{Color.TRANSPARENT,Color.argb(55,255,213,88),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawRect(0,80,620,580,p);p.setShader(null);
+  }else if(e.symbol.equals("U")){
+   p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);p.setColor(Color.argb(70,128,230,135));for(int i=0;i<3;i++)c.drawCircle(150,245,75+i*34+(float)Math.sin(Math.toRadians(phase+i*40))*3,p);p.setStyle(Paint.Style.FILL);
+  }else if(e.symbol.equals("O")){
+   for(int i=0;i<8;i++){float x=60+i*66,y=500+(i%2)*28;p.setColor(Color.argb(70,100,190,235));c.drawCircle(x,y,8,p);c.drawCircle(x+15,y+3,8,p);}
+  }else if(e.symbol.equals("C")){
+   p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);p.setColor(Color.argb(55,180,220,230));for(int row=0;row<4;row++)for(int col=0;col<7;col++){float x=55+col*52+(row%2)*26,y=480+row*42;c.drawCircle(x,y,7,p);if(col<6)c.drawLine(x+7,y,x+45,y,p);}p.setStyle(Paint.Style.FILL);
+  }else if(e.symbol.equals("Ne")){
+   p.setShadowLayer(24,0,0,Color.rgb(255,75,160));p.setColor(Color.argb(95,255,91,175));p.setTextAlign(Paint.Align.CENTER);p.setTextSize(58);c.drawText("Ne",280,535,p);p.clearShadowLayer();
+  }else{
+   int accent=Visuals.categoryColor(e.category);int points=7+(e.number%11);for(int i=0;i<points;i++){double a=i*2.399963+Math.toRadians(phase*.15);float rr=35+(i%5)*24;float x=150+(float)Math.cos(a)*rr,y=470+(float)Math.sin(a)*rr*.42f;p.setColor(Color.argb(24+(i%4)*9,Color.red(accent),Color.green(accent),Color.blue(accent)));c.drawCircle(x,y,3+(e.number+i)%4,p);}p.setTextAlign(Paint.Align.CENTER);p.setColor(Color.argb(35,255,255,255));p.setTextSize(42);c.drawText(e.symbol,150,487,p);
+  }
+ }
 
-    public ElementDetailView(Context c,Element e){
-        super(c);this.e=e;p.setTypeface(Typeface.create("sans",Typeface.BOLD));
-        scaler=new ScaleGestureDetector(c,new ScaleGestureDetector.SimpleOnScaleGestureListener(){public boolean onScale(ScaleGestureDetector d){zoom=Math.max(.7f,Math.min(3.5f,zoom*d.getScaleFactor()));invalidate();return true;}});
-    }
-    @Override public boolean onTouchEvent(MotionEvent m){scaler.onTouchEvent(m);if(m.getAction()==MotionEvent.ACTION_DOWN){lastX=m.getX();lastY=m.getY();}else if(m.getAction()==MotionEvent.ACTION_MOVE&&m.getPointerCount()==1){panX+=m.getX()-lastX;panY+=m.getY()-lastY;lastX=m.getX();lastY=m.getY();invalidate();}return true;}
-    @Override protected void onDraw(Canvas c){c.drawColor(Color.rgb(1,5,13));stars(c);c.save();c.translate(getWidth()/2+panX,getHeight()/2+panY);c.scale(zoom,zoom);c.translate(-800,-450);drawContent(c);c.restore();phase=(phase+.9f)%360f;postInvalidateOnAnimation();}
-
-    private void stars(Canvas c){
-        for(int i=0;i<120;i++){float tw=.55f+.45f*(float)Math.sin(Math.toRadians(phase*1.5f+i*29));p.setColor(Color.argb((int)(45+145*tw),180,205,255));c.drawCircle((i*131%997)/997f*getWidth(),(i*239%991)/991f*getHeight(),.8f+(i%3)*.45f,p);}
-        p.setShader(new RadialGradient(getWidth()*.18f,getHeight()*.35f,getWidth()*.45f,new int[]{Color.argb(42,38,66,130),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawRect(0,0,getWidth(),getHeight(),p);p.setShader(null);
-        p.setShader(new RadialGradient(getWidth()*.76f,getHeight()*.24f,getWidth()*.28f,new int[]{Color.argb(30,95,35,115),Color.argb(14,20,95,130),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawRect(0,0,getWidth(),getHeight(),p);p.setShader(null);
-        float sx=getWidth()*.88f,sy=getHeight()*.18f,sr=Math.min(getWidth(),getHeight())*.055f;p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(sr*.12f);p.setColor(Color.argb(55,220,195,145));c.save();c.rotate(-18,sx,sy);c.drawOval(sx-sr*1.65f,sy-sr*.42f,sx+sr*1.65f,sy+sr*.42f,p);c.restore();p.setStyle(Paint.Style.FILL);p.setShader(new RadialGradient(sx-sr*.25f,sy-sr*.3f,sr*1.2f,Color.argb(95,238,211,157),Color.argb(70,126,87,64),Shader.TileMode.CLAMP));c.drawCircle(sx,sy,sr,p);p.setShader(null);
-    }
-
-    private void drawContent(Canvas c){
-        p.setTextAlign(Paint.Align.LEFT);p.setColor(Color.WHITE);p.setTextSize(43);c.drawText("A "+e.name+" Atom",35,58,p);p.setColor(Color.rgb(221,191,93));p.setTextSize(22);c.drawText("inside matter — from atom to quarks",38,90,p);
-        atom(c,205,330,150);
-        drawConnector(c,340,330,445,270);
-        nucleusLens(c,535,255,112);
-        drawConnector(c,645,265,725,255);
-        protonLens(c,835,255,112);
-        drawConnector(c,945,265,1025,255);
-        neutronLens(c,1135,255,112);
-        drawConnector(c,1245,280,1320,390);
-        quarkLens(c,1415,470,102);
-        electronLens(c,310,690,103);
-        drawConnector(c,240,460,300,585);
-        profilePanel(c);
-        scalePanel(c);
-        factPanel(c);
-        p.setColor(Color.argb(190,0,0,0));c.drawRoundRect(32,785,285,850,18,18,p);p.setColor(Color.WHITE);p.setTextSize(16);c.drawText("Pinch to zoom  •  Drag to explore",52,825,p);
-    }
-
-    private void drawConnector(Canvas c,float x1,float y1,float x2,float y2){p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);p.setColor(Color.argb(95,225,215,190));c.drawLine(x1,y1,x2,y2,p);p.setStyle(Paint.Style.FILL);}
-
-    private void atom(Canvas c,float x,float y,float r){
-        p.setTextAlign(Paint.Align.CENTER);p.setColor(Color.WHITE);p.setTextSize(25);c.drawText(e.name+" Atom",x,y-r-43,p);p.setColor(Color.rgb(222,194,99));p.setTextSize(18);c.drawText("("+e.symbol+")",x,y-r-18,p);
-        float[] tilts={-24,27,86};int[] cols={Color.rgb(89,151,225),Color.rgb(197,78,102),Color.rgb(221,190,91)};
-        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2.6f);for(int k=0;k<3;k++){p.setColor(cols[k]);c.save();c.rotate(tilts[k],x,y);c.drawOval(x-r*1.02f,y-r*.38f,x+r*1.02f,y+r*.38f,p);c.restore();}
-        int electrons=Math.min(e.number,12);
-        // Back-half electrons use the exact same ellipse geometry as the visible guides.
-        for(int i=0;i<electrons;i++){int k=i%3;double a=Math.toRadians(phase*(.65f+k*.22f)+i*360f/electrons);if(Math.sin(a)<0)drawEllipseElectron(c,x,y,r,tilts[k],a,cols[k],false);}
-        // Slowly breathing nucleus with dimensional nucleons.
-        float breathe=1f+.025f*(float)Math.sin(Math.toRadians(phase*1.8f));
-        p.setShader(new RadialGradient(x-r*.15f,y-r*.18f,r*.58f,new int[]{Color.argb(120,115,145,255),Color.argb(28,35,60,135),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawCircle(x,y,r*.57f*breathe,p);p.setShader(null);
-        int total=Math.max(2,Math.min(38,e.number+e.neutrons()));p.setStyle(Paint.Style.FILL);for(int i=0;i<total;i++){double a=i*2.399963+Math.toRadians(phase*.08f);float rr=(float)Math.sqrt(i/(float)total)*r*.36f;float px=x+(float)Math.cos(a)*rr,py=y+(float)Math.sin(a)*rr;int col=i%2==0?Color.rgb(190,63,91):Color.rgb(113,118,153);p.setShadowLayer(5,2,3,Color.BLACK);p.setShader(new RadialGradient(px-3,py-3,r*.08f,Visuals.lighten(col,.48f),col,Shader.TileMode.CLAMP));c.drawCircle(px,py,r*.065f,p);p.setShader(null);p.clearShadowLayer();}
-        for(int i=0;i<electrons;i++){int k=i%3;double a=Math.toRadians(phase*(.65f+k*.22f)+i*360f/electrons);if(Math.sin(a)>=0)drawEllipseElectron(c,x,y,r,tilts[k],a,cols[k],true);}
-        p.setTextAlign(Paint.Align.LEFT);p.setColor(Color.WHITE);p.setTextSize(17);c.drawText("Atomic number: "+e.number,55,525,p);p.setColor(Color.rgb(231,128,153));c.drawText(e.number+" protons",55,553,p);p.setColor(Color.rgb(170,177,211));c.drawText(e.neutrons()+" neutrons (estimated)",55,581,p);p.setColor(Color.rgb(121,181,239));c.drawText(e.number+" electrons",55,609,p);
-    }
-
-    private void drawEllipseElectron(Canvas c,float cx,float cy,float r,float tilt,double a,int orbitColor,boolean front){float ex=(float)Math.cos(a)*r*1.02f,ey=(float)Math.sin(a)*r*.38f;double t=Math.toRadians(tilt);float x=cx+ex*(float)Math.cos(t)-ey*(float)Math.sin(t),y=cy+ex*(float)Math.sin(t)+ey*(float)Math.cos(t);p.setShader(new RadialGradient(x,y,16,new int[]{Color.argb(190,135,195,255),Color.argb(40,Color.red(orbitColor),Color.green(orbitColor),Color.blue(orbitColor)),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawCircle(x,y,16,p);p.setShader(null);p.setColor(front?Color.WHITE:Color.rgb(175,190,215));c.drawCircle(x,y,front?5.8f:4.8f,p);}
-
-    private void lensBase(Canvas c,float x,float y,float r,String title,String scale,int accent){p.setShadowLayer(18,7,11,Color.BLACK);p.setColor(Visuals.darken(accent,.38f));c.drawCircle(x,y,r+9,p);p.clearShadowLayer();p.setShader(new RadialGradient(x-r*.28f,y-r*.32f,r*1.15f,new int[]{Color.rgb(50,76,117),Color.rgb(8,18,34),Color.rgb(1,4,10)},null,Shader.TileMode.CLAMP));c.drawCircle(x,y,r,p);p.setShader(null);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(4);p.setColor(Visuals.lighten(accent,.35f));c.drawCircle(x,y,r,p);p.setStyle(Paint.Style.FILL);p.setTextAlign(Paint.Align.CENTER);p.setColor(accent);p.setTextSize(21);c.drawText(title,x,y-r-22,p);p.setTextSize(15);c.drawText(scale,x,y-r-3,p);}
-
-    private void nucleusLens(Canvas c,float x,float y,float r){int ac=Color.rgb(224,190,91);lensBase(c,x,y,r,"NUCLEUS","~10⁻¹⁵ m",ac);for(int i=0;i<14;i++){double a=i*2.4;float rr=(float)Math.sqrt(i/14f)*r*.45f;float px=x+(float)Math.cos(a)*rr,py=y+(float)Math.sin(a)*rr;int col=i%2==0?Color.rgb(199,67,99):Color.rgb(141,146,179);p.setColor(col);c.drawCircle(px,py,r*.13f,p);p.setColor(Color.argb(210,255,255,255));p.setTextSize(16);p.setTextAlign(Paint.Align.CENTER);c.drawText(i%2==0?"+":"",px,py+5,p);}caption(c,x,y+r+28,"Contains protons + neutrons","Holds nearly all atomic mass");}
-
-    private void protonLens(Canvas c,float x,float y,float r){int ac=Color.rgb(234,105,139);lensBase(c,x,y,r,"PROTON","~10⁻¹⁵ m",ac);p.setShader(new RadialGradient(x-r*.25f,y-r*.28f,r*.65f,new int[]{Color.rgb(255,156,183),Color.rgb(176,50,91),Color.rgb(62,11,31)},null,Shader.TileMode.CLAMP));c.drawCircle(x,y,r*.58f,p);p.setShader(null);p.setColor(Color.WHITE);p.setTextSize(49);p.setTextAlign(Paint.Align.CENTER);c.drawText("+",x,y+17,p);drawMiniQuarks(c,x,y,r*.38f,true);caption(c,x,y+r+28,"Positive charge: +1","2 up quarks + 1 down quark");}
-
-    private void neutronLens(Canvas c,float x,float y,float r){int ac=Color.rgb(184,154,213);lensBase(c,x,y,r,"NEUTRON","~10⁻¹⁵ m",ac);p.setShader(new RadialGradient(x-r*.25f,y-r*.28f,r*.65f,new int[]{Color.rgb(205,211,227),Color.rgb(96,108,140),Color.rgb(26,30,45)},null,Shader.TileMode.CLAMP));c.drawCircle(x,y,r*.58f,p);p.setShader(null);p.setColor(Color.WHITE);p.setTextSize(38);p.setTextAlign(Paint.Align.CENTER);c.drawText("0",x,y+14,p);drawMiniQuarks(c,x,y,r*.38f,false);caption(c,x,y+r+28,"No net electric charge","1 up quark + 2 down quarks");}
-
-    private void drawMiniQuarks(Canvas c,float x,float y,float rr,boolean proton){String[] q=proton?new String[]{"u","u","d"}:new String[]{"u","d","d"};int[] col={Color.rgb(212,68,78),Color.rgb(70,132,207),Color.rgb(93,176,83)};for(int i=0;i<3;i++){double a=-Math.PI/2+i*2*Math.PI/3;float px=x+(float)Math.cos(a)*rr,py=y+(float)Math.sin(a)*rr;p.setColor(col[i]);c.drawCircle(px,py,15,p);p.setColor(Color.WHITE);p.setTextSize(15);p.setTextAlign(Paint.Align.CENTER);c.drawText(q[i],px,py+5,p);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);p.setColor(Color.rgb(238,196,60));c.drawLine(x, y, px, py,p);p.setStyle(Paint.Style.FILL);}}
-
-    private void quarkLens(Canvas c,float x,float y,float r){int ac=Color.rgb(131,207,88);lensBase(c,x,y,r,"QUARK","<10⁻¹⁸ m",ac);String[] qs={"u","u","d"};int[] cols={Color.rgb(211,69,78),Color.rgb(70,132,210),Color.rgb(95,181,83)};for(int i=0;i<3;i++){double a=-Math.PI/2+i*2*Math.PI/3;float px=x+(float)Math.cos(a)*r*.38f,py=y+(float)Math.sin(a)*r*.38f;p.setShader(new RadialGradient(px-4,py-4,r*.25f,Visuals.lighten(cols[i],.45f),cols[i],Shader.TileMode.CLAMP));c.drawCircle(px,py,r*.2f,p);p.setShader(null);p.setColor(Color.WHITE);p.setTextSize(22);p.setTextAlign(Paint.Align.CENTER);c.drawText(qs[i],px,py+7,p);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);p.setColor(Color.rgb(235,190,50));Path wave=new Path();wave.moveTo(x,y);for(int s=1;s<=12;s++){float t=s/12f;wave.lineTo(x+(px-x)*t+(float)Math.sin(t*12*Math.PI+Math.toRadians(phase*3))*4,y+(py-y)*t);}c.drawPath(wave,p);p.setStyle(Paint.Style.FILL);}caption(c,x,y+r+28,"Fundamental particle","Gluons bind quarks together");}
-
-    private void electronLens(Canvas c,float x,float y,float r){int ac=Color.rgb(100,170,235);lensBase(c,x,y,r,"ELECTRON","<10⁻¹⁸ m",ac);p.setShader(new RadialGradient(x,y,r*.75f,new int[]{Color.argb(220,140,211,255),Color.argb(85,40,110,235),Color.argb(10,20,70,160),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawCircle(x,y,r*.82f,p);p.setShader(null);for(int i=0;i<42;i++){double a=i*2.399+phase*.01;float rr=(float)Math.sqrt(i/42f)*r*.68f;p.setColor(Color.argb(35+(i%4)*25,100,180,255));c.drawCircle(x+(float)Math.cos(a)*rr,y+(float)Math.sin(a)*rr,2+(i%3),p);}p.setColor(Color.WHITE);c.drawCircle(x,y,10,p);p.setColor(Color.rgb(110,184,245));p.setTextSize(28);p.setTextAlign(Paint.Align.CENTER);c.drawText("−",x,y+9,p);caption(c,x,y+r+28,"Negative charge: −1","Occupies a probability cloud");}
-
-    private void caption(Canvas c,float x,float y,String a,String b){p.setTextAlign(Paint.Align.CENTER);p.setColor(Color.WHITE);p.setTextSize(14);c.drawText(a,x,y,p);p.setColor(Color.LTGRAY);p.setTextSize(13);c.drawText(b,x,y+20,p);}
-
-    private void profilePanel(Canvas c){panel(c,485,510,1115,705);p.setColor(Color.rgb(226,195,96));p.setTextSize(23);p.setTextAlign(Paint.Align.LEFT);c.drawText("ATOMIC PROFILE",515,548,p);line(c,"Atomic number",String.valueOf(e.number),515,582);line(c,"Atomic mass",e.mass+" u",515,615);line(c,"Protons / electrons",e.number+" / "+e.number,515,648);line(c,"Estimated neutrons",String.valueOf(e.neutrons()),515,681);line(c,"Classification",e.category,810,582);line(c,"Period / group",e.period+" / "+e.group,810,615);line(c,"Electron shells",ScienceInfo.electronConfigurationSummary(e),810,648);line(c,"Room-temperature state",ScienceInfo.state(e),810,681);}
-
-    private void scalePanel(Canvas c){panel(c,1190,620,1535,850);p.setColor(Color.rgb(226,195,96));p.setTextSize(21);p.setTextAlign(Paint.Align.CENTER);c.drawText("THE SCALE",1362,657,p);p.setTextAlign(Paint.Align.LEFT);scaleLine(c,"Atom","~10⁻¹⁰ m",1220,700,1f);scaleLine(c,"Nucleus","~10⁻¹⁵ m",1220,738,.72f);scaleLine(c,"Proton / Neutron","~10⁻¹⁵ m",1220,776,.52f);scaleLine(c,"Quark","<10⁻¹⁸ m",1220,814,.28f);}
-
-    private void factPanel(Canvas c){panel(c,485,725,1148,850);p.setColor(Color.rgb(226,195,96));p.setTextSize(20);p.setTextAlign(Paint.Align.LEFT);c.drawText("WHY THIS ELEMENT MATTERS",515,760,p);p.setColor(Color.rgb(231,235,241));p.setTextSize(15);drawWrapped(c,ScienceInfo.fact(e),515,790,600,23);p.setColor(Color.rgb(160,175,195));p.setTextSize(13);c.drawText(ScienceInfo.origin(e)+"  •  "+ScienceInfo.state(e)+" at room temperature",515,838,p);p.setTextAlign(Paint.Align.RIGHT);p.setColor(Color.rgb(218,188,91));c.drawText("Electron shells: "+ScienceInfo.electronConfigurationSummary(e),1120,838,p);}
-
-    private void scaleLine(Canvas c,String a,String b,float x,float y,float ratio){p.setColor(Color.WHITE);p.setTextSize(15);c.drawText(a,x,y,p);p.setColor(Color.rgb(200,205,216));c.drawText(b,x+190,y,p);p.setColor(Color.rgb(218,188,91));c.drawRoundRect(x+102,y-9,x+102+70*ratio,y-5,3,3,p);}
-    private void line(Canvas c,String a,String b,float x,float y){p.setColor(Color.LTGRAY);p.setTextSize(14);c.drawText(a,x,y,p);p.setColor(Color.WHITE);p.setTextSize(17);c.drawText(b,x+165,y,p);}
-    private void panel(Canvas c,float l,float t,float r,float b){p.setColor(Color.argb(205,4,10,22));p.setStyle(Paint.Style.FILL);c.drawRoundRect(l,t,r,b,20,20,p);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);p.setColor(Color.rgb(145,111,47));c.drawRoundRect(l,t,r,b,20,20,p);p.setStyle(Paint.Style.FILL);}
-    private void drawWrapped(Canvas c,String text,float x,float y,float width,float leading){String[] words=text.split(" ");StringBuilder line=new StringBuilder();for(String word:words){String test=line.length()==0?word:line+" "+word;if(p.measureText(test)>width){c.drawText(line.toString(),x,y,p);y+=leading;line=new StringBuilder(word);}else line=new StringBuilder(test);}if(line.length()>0)c.drawText(line.toString(),x,y,p);}
+ private void drawElementIdentity(Canvas c){int accent=Visuals.categoryColor(e.category);p.setShader(new RadialGradient(145,160,125,new int[]{Color.argb(120,Color.red(accent),Color.green(accent),Color.blue(accent)),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawCircle(145,160,125,p);p.setShader(null);p.setTextAlign(Paint.Align.CENTER);p.setColor(Color.WHITE);p.setTextSize(68);c.drawText(e.symbol,145,177,p);p.setTextSize(15);p.setColor(Color.rgb(205,224,228));c.drawText(e.name,145,204,p);}
+ private void drawAtom(Canvas c,float cx,float cy,float r){
+  int[] shells=NuclearData.shellDistribution(e.number);int total=0;for(int q:shells)total+=q;
+  for(int s=0;s<shells.length;s++){float rr=r*(.46f+s*.22f);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(selectedShell==s?4.5f:2f);p.setColor(selectedShell==s?Color.rgb(224,241,246):Color.argb(130,89+s*18,170,210));c.drawOval(cx-rr,cy-rr*.43f,cx+rr,cy+rr*.43f,p);p.setStyle(Paint.Style.FILL);int count=shells[s];for(int j=0;j<count;j++){double a=Math.toRadians(phase*(.62+s*.08)+j*360.0/count);float x=cx+(float)Math.cos(a)*rr,y=cy+(float)Math.sin(a)*rr*.43f;boolean front=Math.sin(a)>=0;if(!front)electron(c,x,y,false);} }
+  drawCompactNucleus(c,cx,cy,r*.35f);
+  for(int s=0;s<shells.length;s++){float rr=r*(.46f+s*.22f);int count=shells[s];for(int j=0;j<count;j++){double a=Math.toRadians(phase*(.62+s*.08)+j*360.0/count);if(Math.sin(a)>=0){float x=cx+(float)Math.cos(a)*rr,y=cy+(float)Math.sin(a)*rr*.43f;electron(c,x,y,true);}}}
+  p.setTextAlign(Paint.Align.CENTER);p.setColor(Color.rgb(218,233,236));p.setTextSize(14);c.drawText(total+" electrons • shells "+ScienceInfo.electronConfigurationSummary(e),cx,cy+r+70,p);if(selectedShell>=0&&selectedShell<shells.length){p.setColor(Color.rgb(128,218,232));p.setTextSize(13);c.drawText("Shell "+(selectedShell+1)+": "+shells[selectedShell]+" electrons",cx,cy+r+91,p);}else{p.setColor(Color.rgb(134,180,190));p.setTextSize(12);c.drawText("Tap a visible shell to inspect it",cx,cy+r+91,p);}
+ }
+ private void electron(Canvas c,float x,float y,boolean front){p.setShader(new RadialGradient(x,y,16,new int[]{Color.argb(front?205:90,154,226,255),Color.argb(35,75,170,220),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawCircle(x,y,16,p);p.setShader(null);p.setColor(front?Color.WHITE:Color.rgb(155,184,194));c.drawCircle(x,y,4.4f,p);}
+ private void drawCompactNucleus(Canvas c,float cx,float cy,float r){int count=Math.min(46,e.representativeMassNumber());for(int i=0;i<count;i++){double a=i*2.399963+phase*.001;float rr=(float)Math.sqrt((i+.5)/count)*r*.78f;boolean proton=i<Math.round(count*(e.number/(float)e.representativeMassNumber()));float x=cx+(float)Math.cos(a)*rr,y=cy+(float)Math.sin(a)*rr;p.setColor(proton?Color.rgb(204,72,102):Color.rgb(115,143,166));c.drawCircle(x,y,Math.max(3.2f,r*.095f),p);}p.setTextAlign(Paint.Align.CENTER);p.setColor(Color.WHITE);p.setTextSize(13);c.drawText(e.number+"p  "+e.neutrons()+"n",cx,cy+5,p);}
+ private void drawNucleusLens(Canvas c,float cx,float cy,float r){panel(c,cx-r-18,cy-r-52,cx+r+18,cy+r+88);p.setTextAlign(Paint.Align.CENTER);p.setColor(Color.rgb(223,197,119));p.setTextSize(21);c.drawText("NUCLEUS • "+e.isotopeLabel(),cx,cy-r-20,p);int A=e.representativeMassNumber(),Z=e.number,N=e.neutrons();float dot=Math.max(2.1f,Math.min(6.2f,93f/(float)Math.sqrt(A)));for(int i=0;i<A;i++){double a=i*2.399963;float rr=(float)Math.sqrt((i+.5)/A)*r*.78f;float x=cx+(float)Math.cos(a)*rr,y=cy+(float)Math.sin(a)*rr*.92f;p.setColor(i<Z?Color.rgb(211,77,110):Color.rgb(116,147,173));c.drawCircle(x,y,dot,p);}p.setColor(Color.WHITE);p.setTextSize(14);c.drawText(Z+" protons  •  "+N+" neutrons",cx,cy+r+31,p);p.setColor(Color.rgb(159,186,194));p.setTextSize(12);c.drawText("Each visible particle represents one nucleon",cx,cy+r+52,p);}
+ private void drawParticleCards(Canvas c){particle(c,905,208,"PROTON","+1","uud",Color.rgb(210,72,110));particle(c,1135,208,"NEUTRON","0","udd",Color.rgb(121,143,175));electronCard(c,1365,208);quarkCard(c,1085,474);}
+ private void particle(Canvas c,float cx,float cy,String title,String charge,String quarks,int accent){panel(c,cx-103,cy-106,cx+103,cy+116);p.setTextAlign(Paint.Align.CENTER);p.setColor(Color.rgb(226,210,154));p.setTextSize(18);c.drawText(title,cx,cy-76,p);p.setShader(new RadialGradient(cx-18,cy-15,67,new int[]{Visuals.lighten(accent,.34f),accent,Visuals.darken(accent,.55f)},null,Shader.TileMode.CLAMP));c.drawCircle(cx,cy,55,p);p.setShader(null);p.setColor(Color.WHITE);p.setTextSize(30);c.drawText(charge,cx,cy+10,p);String[] q=quarks.equals("uud")?new String[]{"u","u","d"}:new String[]{"u","d","d"};for(int i=0;i<3;i++){double a=-Math.PI/2+i*2*Math.PI/3;float x=cx+(float)Math.cos(a)*30,y=cy+(float)Math.sin(a)*30;p.setColor(q[i].equals("u")?Color.rgb(94,190,231):Color.rgb(238,142,92));c.drawCircle(x,y,12,p);p.setColor(Color.WHITE);p.setTextSize(12);c.drawText(q[i],x,y+4,p);}p.setTextSize(12);p.setColor(Color.rgb(184,207,211));c.drawText(quarks+" quarks linked by gluons",cx,cy+86,p);}
+ private void electronCard(Canvas c,float cx,float cy){panel(c,cx-103,cy-106,cx+103,cy+116);p.setTextAlign(Paint.Align.CENTER);p.setColor(Color.rgb(226,210,154));p.setTextSize(18);c.drawText("ELECTRON",cx,cy-76,p);p.setShader(new RadialGradient(cx,cy,68,new int[]{Color.argb(220,140,225,255),Color.argb(68,71,153,220),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));c.drawCircle(cx,cy,68,p);p.setShader(null);for(int i=0;i<42;i++){double a=i*2.399+phase*.02;float rr=(float)Math.sqrt(i/42f)*58;p.setColor(Color.argb(35+i%4*20,118,207,245));c.drawCircle(cx+(float)Math.cos(a)*rr,cy+(float)Math.sin(a)*rr,2+i%3,p);}p.setColor(Color.WHITE);c.drawCircle(cx,cy,7,p);p.setTextSize(27);c.drawText("−",cx,cy+9,p);p.setTextSize(12);p.setColor(Color.rgb(184,207,211));c.drawText("Probability cloud • charge −1",cx,cy+86,p);}
+ private void quarkCard(Canvas c,float cx,float cy){panel(c,cx-260,cy-112,cx+488,cy+110);p.setTextAlign(Paint.Align.LEFT);p.setColor(Color.rgb(226,210,154));p.setTextSize(19);c.drawText("QUARKS AND THE STRONG FORCE",cx-230,cy-77,p);String[] names={"UP QUARK","DOWN QUARK","GLUON"};String[] desc={"charge +⅔","charge −⅓","carries the strong interaction"};int[] cols={Color.rgb(94,190,231),Color.rgb(238,142,92),Color.rgb(191,112,233)};for(int i=0;i<3;i++){float x=cx-170+i*225;p.setColor(cols[i]);c.drawCircle(x,cy,34,p);p.setColor(Color.WHITE);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(13);c.drawText(names[i],x,cy+58,p);p.setColor(Color.rgb(181,205,211));p.setTextSize(11);c.drawText(desc[i],x,cy+78,p);}p.setTextAlign(Paint.Align.LEFT);p.setColor(Color.rgb(194,213,216));p.setTextSize(12);c.drawText("Quarks have not been observed in isolation; gluon fields bind them inside protons and neutrons.",cx+15,cy-3,p);}
+ private void drawProfile(Canvas c){panel(c,42,606,950,842);p.setTextAlign(Paint.Align.LEFT);p.setColor(Color.rgb(226,210,154));p.setTextSize(20);c.drawText("ATOMIC PROFILE",68,642,p);row(c,"Atomic number",String.valueOf(e.number),68,677);row(c,"Atomic mass",e.mass+" u",68,710);row(c,"Model isotope",e.isotopeLabel(),68,743);row(c,"Protons / neutrons",e.number+" / "+e.neutrons(),68,776);row(c,"Electrons",String.valueOf(e.number),470,677);row(c,"Shell totals",ScienceInfo.electronConfigurationSummary(e),470,710);row(c,"State at room temperature",ScienceInfo.state(e),470,743);row(c,"Origin",ScienceInfo.origin(e),470,776);p.setColor(Color.rgb(178,202,208));p.setTextSize(12);wrap(c,ScienceInfo.fact(e),68,810,840,19);}
+ private void drawScale(Canvas c){panel(c,982,606,1548,760);p.setTextAlign(Paint.Align.LEFT);p.setColor(Color.rgb(226,210,154));p.setTextSize(19);c.drawText("SCALE JOURNEY",1008,642,p);p.setTextSize(13);p.setColor(Color.rgb(201,218,220));c.drawText("Atom ~10⁻¹⁰ m",1008,678,p);c.drawText("Nucleus and nucleons ~10⁻¹⁵ m",1008,706,p);c.drawText("Quarks behave point-like below ~10⁻¹⁸ m",1008,734,p);}
+ private void drawExploreButton(Canvas c){explore.set(getWidth()*.725f,getHeight()*.865f,getWidth()*.955f,getHeight()*.955f);float sx=1600f/getWidth(),sy=900f/getHeight();RectF r=new RectF(explore.left*sx,explore.top*sy,explore.right*sx,explore.bottom*sy);p.setShader(new LinearGradient(r.left,r.top,r.right,r.bottom,Color.rgb(49,126,150),Color.rgb(19,70,89),Shader.TileMode.CLAMP));c.drawRoundRect(r,24,24,p);p.setShader(null);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);p.setColor(Color.rgb(136,220,235));c.drawRoundRect(r,24,24,p);p.setStyle(Paint.Style.FILL);p.setTextAlign(Paint.Align.CENTER);p.setColor(Color.WHITE);p.setTextSize(24);c.drawText("EXPLORE  →",r.centerX(),r.centerY()+8,p);}
+ private void panel(Canvas c,float l,float t,float r,float b){p.setColor(Color.argb(220,7,15,20));c.drawRoundRect(l,t,r,b,19,19,p);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.5f);p.setColor(Color.rgb(48,91,101));c.drawRoundRect(l,t,r,b,19,19,p);p.setStyle(Paint.Style.FILL);}
+ private void row(Canvas c,String a,String b,float x,float y){p.setColor(Color.rgb(151,180,187));p.setTextSize(12);c.drawText(a,x,y,p);p.setColor(Color.WHITE);p.setTextSize(15);c.drawText(b,x+175,y,p);}
+ private void wrap(Canvas c,String text,float x,float y,float width,float lead){String[] ws=text.split(" ");String line="";for(String q:ws){String test=line.isEmpty()?q:line+" "+q;if(p.measureText(test)>width){c.drawText(line,x,y,p);y+=lead;line=q;}else line=test;}if(!line.isEmpty())c.drawText(line,x,y,p);}
 }

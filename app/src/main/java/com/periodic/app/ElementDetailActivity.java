@@ -1,17 +1,5 @@
 package com.periodic.app;
-
-import android.app.Activity;
-import android.os.Bundle;
-
-/** Displays the interactive atomic detail illustration for one element. */
+import android.app.Activity;import android.os.Bundle;
 public class ElementDetailActivity extends Activity {
-    @Override protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        int number = getIntent().getIntExtra("element", 1);
-        Element element = ElementData.byNumber(number);
-        if (element == null) element = ElementData.byNumber(1);
-        setContentView(new ElementDetailView(this, element));
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-    }
-    @Override public void onBackPressed(){ super.onBackPressed(); overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out); }
+ @Override protected void onCreate(Bundle b){super.onCreate(b);int n=getIntent().getIntExtra("atomicNumber",getIntent().getIntExtra("element",-1));Element e=ElementData.byNumber(n);if(e==null){finish();return;}setContentView(new ElementDetailView(this,e));overridePendingTransition(R.anim.exhibit_enter,R.anim.exhibit_exit);}
 }
