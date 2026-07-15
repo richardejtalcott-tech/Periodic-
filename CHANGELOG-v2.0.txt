@@ -1,0 +1,10 @@
+Periodic v2.0
+
+- Improved layered pseudo-3D periodic table tiles
+- Brushed matte metallic category materials
+- Animated moonlight reflection and stronger depth shadows
+- Richer nebula, star cluster, Saturn and parallax environment
+- Electrons locked to visible ellipse geometry and layered behind/in front of nuclei
+- Animated quark/gluon displays and electron probability cloud
+- Smoother transitions, momentum and subtle selection sound
+- Expanded educational element panels

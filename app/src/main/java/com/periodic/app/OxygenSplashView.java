@@ -18,7 +18,7 @@ public class OxygenSplashView extends View {
         float w=getWidth(), h=getHeight(), cx=w/2f, cy=h/2f-24f;
         c.drawColor(Color.rgb(1,5,14));
         drawSpace(c,w,h);
-        float r=Math.min(w,h)*.155f;
+        float r=Math.min(w,h)*.155f; float camera=1f+.018f*(float)Math.sin(Math.toRadians(phase*.55f)); c.save(); c.scale(camera,camera,cx,cy);
 
         final float[] tilts={-28f,31f,89f};
         final int[] colors={Color.rgb(193,78,103),Color.rgb(91,151,224),Color.rgb(218,188,90)};
@@ -47,6 +47,7 @@ public class OxygenSplashView extends View {
             if(Math.sin(a)>=0) drawElectron(c,cx,cy,r,tilts[k],a,colors[k],true);
         }
 
+        c.restore();
         float fade=Math.min(1f,phase/100f);
         p.setAlpha((int)(255*fade)); p.setTextAlign(Paint.Align.CENTER);
         p.setColor(Color.WHITE); p.setTextSize(Math.min(w,h)*.073f);
@@ -88,6 +89,8 @@ public class OxygenSplashView extends View {
         double t=Math.toRadians(tilt); float x=cx+ex*(float)Math.cos(t)-ey*(float)Math.sin(t); float y=cy+ex*(float)Math.sin(t)+ey*(float)Math.cos(t);
         float er=r*.046f;
         p.setStyle(Paint.Style.FILL);
+        // short trail follows the same ellipse rather than drifting away from it
+        for(int j=4;j>=1;j--){double ta=angle-j*.055;float tx=(float)Math.cos(ta)*r*1.66f,ty=(float)Math.sin(ta)*r*.62f;float qx=cx+tx*(float)Math.cos(t)-ty*(float)Math.sin(t),qy=cy+tx*(float)Math.sin(t)+ty*(float)Math.cos(t);p.setColor(Color.argb(front?10+j*8:5+j*4,Color.red(color),Color.green(color),Color.blue(color)));c.drawCircle(qx,qy,er*(.28f+j*.08f),p);}
         p.setShader(new RadialGradient(x,y,er*3.6f,new int[]{Color.argb(front?185:90,145,205,255),Color.argb(20,90,150,255),Color.TRANSPARENT},null,Shader.TileMode.CLAMP));
         c.drawCircle(x,y,er*3.6f,p); p.setShader(null);
         p.setColor(front?Color.WHITE:Color.rgb(175,190,215)); c.drawCircle(x,y,er,p);

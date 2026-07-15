@@ -5,14 +5,13 @@ import android.os.Bundle;
 
 /** Displays the interactive atomic detail illustration for one element. */
 public class ElementDetailActivity extends Activity {
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         int number = getIntent().getIntExtra("element", 1);
         Element element = ElementData.byNumber(number);
-        if (element == null) {
-            element = ElementData.byNumber(1);
-        }
+        if (element == null) element = ElementData.byNumber(1);
         setContentView(new ElementDetailView(this, element));
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
     }
+    @Override public void onBackPressed(){ super.onBackPressed(); overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out); }
 }

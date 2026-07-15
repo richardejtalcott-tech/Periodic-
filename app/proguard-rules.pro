@@ -1,1 +1,3 @@
-# No custom ProGuard rules are required for version 1.0.
+-keep class com.google.android.filament.** { *; }
+-keep class com.google.android.filament.gltfio.** { *; }
+-keep class com.google.android.filament.utils.** { *; }

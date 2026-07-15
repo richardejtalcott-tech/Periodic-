@@ -1,0 +1,8 @@
+Periodic v2.1 Filament rewrite
+
+- Replaced the periodic-table Canvas renderer with Google Filament 1.74.0.
+- Added a true 3D glTF scene containing 118 physical element blocks.
+- Added metallic/roughness PBR materials and category-colored texture atlas.
+- Added real perspective orbit camera and pinch zoom through ModelViewer.
+- Added physical platform, Saturn sphere, and Saturn ring geometry.
+- Retained the existing splash and educational particle detail pages.
